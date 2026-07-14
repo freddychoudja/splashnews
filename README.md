@@ -67,6 +67,86 @@ python3 scraper.py --days 30 --output offres_emploi_cameroun.csv
 python3 scraper_opportunites.py --days 30 --output opportunites_cameroun.csv
 ```
 
+### Publication vers KamerJob
+
+Copier le fichier d'exemple, puis renseigner les identifiants administrateur dans
+le fichier local ignoré par Git :
+
+```bash
+cp .env.kamerjob.example .env.kamerjob
+```
+
+Toujours commencer par une simulation. Elle contrôle les doublons déjà
+présents sur KamerJob, les champs obligatoires et les canaux de candidature :
+
+```bash
+python3 publish_kamerjob.py
+```
+
+La déduplication croise le titre normalisé et une identité composée de
+l'entreprise, du poste, de la ville, de la date limite et de l'URL/email de
+candidature. Elle reconnaît les variations de casse, d'accents et certains noms
+d'entreprise abrégés, tout en conservant deux offres lorsque des champs connus
+se contredisent ou que les postes sont différents.
+
+Par défaut, seules les lignes `cameroondesks` et `jobincamer` sont publiées.
+Une autre sélection peut être demandée explicitement, par exemple avec
+`--source jobcameroun`, ou plusieurs options `--source` répétées.
+
+Après lecture du rapport, effectuer l'envoi explicite :
+
+```bash
+python3 publish_kamerjob.py --send
+```
+
+Avec `--send`, le script enchaîne aussi l'étape modérateur : chaque annonce
+créée et encore `pending_review` passe au statut `published` uniquement si un
+vrai email ou une vraie URL de candidature est présent. Sans ces informations,
+l'annonce reste en modération. La reprise se base sur les identifiants du journal
+local et ne modifie donc pas les annonces créées par d'autres utilisateurs.
+
+`--limit N` limite le nombre de nouvelles offres traitées. Les champs absents
+du CSV sont déduits prudemment ; les valeurs de repli sont le secteur
+`Conseil et services aux entreprises` (21) et le contrat `Temps plein` (10),
+modifiables avec `--default-sector` et `--default-job-type`. Quand l'entreprise
+ne peut pas être déduite du titre, la valeur `Entreprise non précisée` est
+utilisée. Une offre sans URL ni email peut être créée, mais elle n'est pas
+approuvée automatiquement et reste dans la file de modération.
+
+### Synchronisation quotidienne en une commande
+
+La commande suivante scrape CameroonDesks et JobinCamer, remplace le CSV par
+les offres récentes, puis publie uniquement celles qui ne sont pas encore sur
+KamerJob :
+
+```bash
+python3 sync_kamerjob.py
+```
+
+Pour tester tout le cycle sans créer d'annonce :
+
+```bash
+python3 sync_kamerjob.py --dry-run
+```
+
+La fenêtre par défaut est de 30 jours. Elle peut être modifiée avec
+`--days`, par exemple `python3 sync_kamerjob.py --days 7`.
+
+### Exécution automatique avec GitHub Actions
+
+Le workflow `.github/workflows/kamerjob-daily.yml` lance la synchronisation
+tous les jours à 12:00, heure du Cameroun, et peut aussi être déclenché
+manuellement depuis l'onglet **Actions** de GitHub.
+
+Dans **Settings > Secrets and variables > Actions**, créer ces deux secrets :
+
+- `KAMERJOB_EMAIL`
+- `KAMERJOB_PASSWORD`
+
+Les identifiants sont lus directement depuis les secrets du runner et ne sont
+jamais écrits dans le dépôt. Le workflow exécute les tests avant chaque
+synchronisation et s'arrête si un secret manque.
+
 Options (identiques pour les deux scripts) :
 - `--source` : `all` (défaut) ou le nom d'une source précise — limite le scraping à une seule source
   - `scraper.py` : `cameroondesks`, `jobincamer`
