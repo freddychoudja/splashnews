@@ -1,0 +1,49 @@
+name: Synchronisation quotidienne KamerJob
+
+on:
+  schedule:
+    # 11:00 UTC = 12:00 au Cameroun (UTC+1).
+    - cron: "0 11 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kamerjob-daily-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      KAMERJOB_EMAIL: ${{ secrets.KAMERJOB_EMAIL }}
+      KAMERJOB_PASSWORD: ${{ secrets.KAMERJOB_PASSWORD }}
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v6
+
+      - name: Installer Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Installer les dépendances
+        run: python -m pip install -r requirements.txt
+
+      - name: Vérifier les secrets
+        shell: bash
+        run: |
+          if [[ -z "$KAMERJOB_EMAIL" || -z "$KAMERJOB_PASSWORD" ]]; then
+            echo "Les secrets KAMERJOB_EMAIL et KAMERJOB_PASSWORD sont obligatoires."
+            exit 1
+          fi
+
+      - name: Exécuter les tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Scraper, envoyer et modérer les nouvelles offres
+        run: python sync_kamerjob.py --days 30

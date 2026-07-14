@@ -1,0 +1,5 @@
+.env.kamerjob
+publication_kamerjob.jsonl
+__pycache__/
+*.py[cod]
+.~lock.*
