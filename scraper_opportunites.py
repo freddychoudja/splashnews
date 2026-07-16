@@ -3,11 +3,12 @@
 import argparse
 import csv
 
-from sources import cameroondesks_opportunites, infospratiques
+from sources import cameroondesks_opportunites, infospratiques, opportunitydesk
 
 SOURCES = {
     cameroondesks_opportunites.NAME: cameroondesks_opportunites.scrape,
     infospratiques.NAME: infospratiques.scrape,
+    opportunitydesk.NAME: opportunitydesk.scrape,
 }
 
 FIELDNAMES = [

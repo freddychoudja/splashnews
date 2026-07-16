@@ -2,12 +2,16 @@
 
 import argparse
 import csv
+import sys
 
-from sources import cameroondesks, jobincamer
+import requests
+
+from sources import cameroondesks, jobcameroun, jobincamer
 
 SOURCES = {
     cameroondesks.NAME: cameroondesks.scrape,
     jobincamer.NAME: jobincamer.scrape,
+    jobcameroun.NAME: jobcameroun.scrape,
 }
 
 FIELDNAMES = [
@@ -19,7 +23,10 @@ FIELDNAMES = [
 def scrape_all(source_names, since_days, max_pages, include_expired):
     rows = []
     for name in source_names:
-        rows.extend(SOURCES[name](since_days, max_pages, include_expired))
+        try:
+            rows.extend(SOURCES[name](since_days, max_pages, include_expired))
+        except requests.RequestException as exc:
+            print(f"Avertissement: source {name} ignorée ({exc})", file=sys.stderr)
     rows.sort(key=lambda r: r["published"], reverse=True)
     return rows
 

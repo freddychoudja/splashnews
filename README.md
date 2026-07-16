@@ -147,6 +147,21 @@ Les identifiants sont lus directement depuis les secrets du runner et ne sont
 jamais écrits dans le dépôt. Le workflow exécute les tests avant chaque
 synchronisation et s'arrête si un secret manque.
 
+Pour recevoir le rapport de synchronisation par email, ajouter également les
+secrets suivants :
+
+- `SMTP_HOST` : serveur SMTP, par exemple `smtp.gmail.com` ;
+- `SMTP_PORT` : `587` pour STARTTLS ou `465` pour SSL ;
+- `SMTP_USER` et `SMTP_PASSWORD` : identifiants SMTP (mot de passe
+  d'application pour Gmail) ;
+- `SMTP_FROM` : adresse d'expédition, facultative si identique à `SMTP_USER` ;
+- `REPORT_EMAIL_TO` : destinataire, facultatif ; `KAMERJOB_EMAIL` est utilisé
+  par défaut.
+
+Un rapport est envoyé après chaque synchronisation, y compris lorsqu'aucune
+offre n'est extraite ou que la publication échoue. Une configuration SMTP
+absente n'empêche pas la synchronisation de fonctionner.
+
 Options (identiques pour les deux scripts) :
 - `--source` : `all` (défaut) ou le nom d'une source précise — limite le scraping à une seule source
   - `scraper.py` : `cameroondesks`, `jobincamer`

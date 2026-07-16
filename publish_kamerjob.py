@@ -296,6 +296,38 @@ def parse_salary(value: str) -> tuple[int | None, int | None]:
     return min(numbers[:2]), max(numbers[:2])
 
 
+def complete_description(value: str) -> str:
+    """Évite de publier un résumé interrompu au milieu d'une phrase.
+
+    Les scrapers limitent les résumés à 300 caractères. Lorsqu'une coupure est
+    visible, on revient à la dernière fin de phrase fiable. Sans ponctuation de
+    fin exploitable, le texte est conservé afin de ne pas produire une
+    description presque vide.
+    """
+    text = re.sub(r"\s+", " ", value or "").strip()
+    # Une description courte peut volontairement ne pas se terminer par un
+    # point. La coupure automatique des scrapers est, elle, située à 300
+    # caractères : on ne corrige que les textes proches de cette limite.
+    if len(text) < 295 or re.search(r"[.!?…][\"'»”)]*$", text):
+        return text
+
+    sentence_ends = [
+        match.end()
+        for match in re.finditer(
+            r"(?<!\b[A-ZÀ-Ý])[.!?…](?=(?:[\"'»”)]*)\s+[A-ZÀ-Ý0-9]|(?:[\"'»”)]*)$)",
+            text,
+        )
+        if match.end() >= 50
+    ]
+    if sentence_ends:
+        return text[:sentence_ends[-1]].rstrip()
+
+    # Aucun point de phrase fiable : au minimum, ne jamais publier un mot
+    # sectionné. L'ellipse indique explicitement que l'extrait continue.
+    last_word = text.rsplit(" ", 1)[0].rstrip(" ,;:-")
+    return f"{last_word}…" if last_word else text
+
+
 def build_payload(
     row: dict[str, str],
     region_ids: dict[str, int],
@@ -303,7 +335,7 @@ def build_payload(
     default_job_type: int,
 ) -> tuple[dict | None, str | None]:
     title = (row.get("title") or "").strip()
-    description = (row.get("summary") or "").strip()
+    description = complete_description(row.get("summary") or "")
     company = infer_company(title)
     email = clean_application_email(row.get("apply_email", ""))
     original_url = clean_application_url(row.get("apply_url", ""))
