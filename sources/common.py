@@ -9,7 +9,13 @@ CAMEROON_TZ = timezone(timedelta(hours=1))  # Afrique/Douala, pas d'heure d'ét�
 
 TAG_RE = re.compile(r"<[^>]+>")
 SPACE_RE = re.compile(r"\s+")
+SPACE_BEFORE_PUNCT_RE = re.compile(r"\s+([.,])")
 HREF_RE = re.compile(r'href="([^"]+)"')
+HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
+SCRIPT_STYLE_RE = re.compile(
+    r"<(script|style)\b[^>]*>.*?</\1\s*>",
+    re.I | re.S,
+)
 
 # Balises de bloc qui séparent visuellement deux informations dans un post ; on les
 # convertit en retour à la ligne avant de retirer le reste des balises, pour ne pas
@@ -146,12 +152,21 @@ COMMON_NON_APPLY_DOMAINS = (
 
 
 def strip_html(text):
+    # Le contenu des balises style/script doit être supprimé avant les balises
+    # elles-mêmes. Sinon le CSS (couleurs ``#...`` et déclarations séparées par
+    # des ``;``) devient du texte visible dans les résumés publiés.
+    text = HTML_COMMENT_RE.sub(" ", text)
+    text = SCRIPT_STYLE_RE.sub(" ", text)
     text = TAG_RE.sub(" ", text)
+    text = html.unescape(text)
     text = SPACE_RE.sub(" ", text).strip()
+    text = SPACE_BEFORE_PUNCT_RE.sub(r"\1", text)
     return text
 
 
 def normalize_lines(content_html):
+    content_html = HTML_COMMENT_RE.sub(" ", content_html)
+    content_html = SCRIPT_STYLE_RE.sub(" ", content_html)
     text = BLOCK_BREAK_RE.sub("\n", content_html)
     text = TAG_RE.sub(" ", text)
     text = html.unescape(text)

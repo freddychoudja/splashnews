@@ -20,6 +20,12 @@ jobs:
     env:
       KAMERJOB_EMAIL: ${{ secrets.KAMERJOB_EMAIL }}
       KAMERJOB_PASSWORD: ${{ secrets.KAMERJOB_PASSWORD }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      SMTP_FROM: ${{ secrets.SMTP_FROM }}
+      REPORT_EMAIL_TO: freddychoudja@gmail.com
 
     steps:
       - name: Récupérer le dépôt

@@ -6,6 +6,7 @@ from publish_kamerjob import (
     build_payload,
     clean_application_email,
     clean_application_url,
+    complete_description,
     fit_application_url,
     has_application_channel,
     infer_company,
@@ -41,6 +42,38 @@ class PublishKamerJobTests(unittest.TestCase):
 
     def test_salary_range(self):
         self.assertEqual(parse_salary("300 000 - 600 000 FCFA"), (300000, 600000))
+
+    def test_incomplete_description_stops_after_last_complete_sentence(self):
+        description = (
+            "Cette entreprise recherche un nouveau responsable commercial. "
+            "Le candidat retenu devra développer les ventes, accompagner les "
+            "équipes sur le terrain et participer activement à la stratégie "
+            "commerciale nationale. Cette dernière phrase est volontairement "
+            "interrompue afin de représenter un résumé automatiquement coupé "
+            "pendant la collecte des informations de"
+        )
+
+        self.assertEqual(
+            complete_description(description),
+            "Cette entreprise recherche un nouveau responsable commercial. "
+            "Le candidat retenu devra développer les ventes, accompagner les "
+            "équipes sur le terrain et participer activement à la stratégie "
+            "commerciale nationale.",
+        )
+
+    def test_complete_description_is_not_shortened(self):
+        description = "Cette description est déjà complète et peut être publiée."
+        self.assertEqual(complete_description(description), description)
+
+    def test_description_without_reliable_sentence_end_is_preserved(self):
+        description = "Profil recherché avec expérience en comptabilité et gestion"
+        self.assertEqual(complete_description(description), description)
+
+    def test_long_description_without_sentence_end_stops_at_a_whole_word(self):
+        description = ("profil recherché avec expérience en gestion " * 8)[:300]
+        result = complete_description(description)
+        self.assertTrue(result.endswith("…"))
+        self.assertNotEqual(result[-2], " ")
 
     def test_payload_maps_csv_fields(self):
         payload, reason = build_payload(
