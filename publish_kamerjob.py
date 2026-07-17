@@ -25,7 +25,7 @@ BASE_URL = "https://admin.kamerjob.com"
 DEFAULT_INPUT = "offres_emploi_cameroun.csv"
 DEFAULT_ENV = ".env.kamerjob"
 DEFAULT_JOURNAL = "publication_kamerjob.jsonl"
-DEFAULT_SOURCES = ("cameroondesks", "jobincamer")
+DEFAULT_SOURCES = ("cameroondesks", "jobincamer", "jobcameroun")
 GENERIC_COMPANY_TOKENS = {
     "cameroun", "cameroon", "sa", "sas", "sarl", "ltd", "limited", "plc",
     "groupe", "group", "company", "compagnie", "societe", "entreprise", "ong",
@@ -606,8 +606,8 @@ def main() -> int:
         action="append",
         choices=("cameroondesks", "jobincamer", "jobcameroun"),
         help=(
-            "source à publier (répétable ; par défaut : cameroondesks et "
-            "jobincamer)"
+            "source à publier (répétable ; par défaut : cameroondesks, "
+            "jobincamer et jobcameroun)"
         ),
     )
     parser.add_argument("--send", action="store_true", help="effectuer les créations (sinon simulation)")
