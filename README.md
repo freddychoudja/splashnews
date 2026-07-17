@@ -12,11 +12,13 @@ Chaque source est un module dans [sources/](sources/) qui expose une fonction `s
 Sources :
 - [CameroonDesks](https://www.cameroondesks.com/search/label/jobs) (`cameroondesks`) : blog Blogger, offres au format texte libre.
 - [JobinCamer](https://www.jobincamer.com/adverts/jobs) (`jobincamer`) : portail d'offres Drupal, données structurées (localisation, expérience, secteur...).
+- [JobCameroun](https://job-cameroun.com/offres) (`jobcameroun`) : chaque offre embarque un bloc JSON-LD `schema.org/JobPosting` structuré (titre, dates, localisation).
 
 ### Fonctionnement
 
 - **cameroondesks** : interroge le flux JSON public de Blogger (`/feeds/posts/default/-/jobs`) plutôt que de parser le HTML de la page, ce qui le rend robuste aux changements de mise en page. Ce flux renvoie déjà le contenu complet de chaque article, donc aucune requête supplémentaire n'est nécessaire.
 - **jobincamer** : récupère la liste des offres sur `/adverts/jobs` (titre, lieu, date de publication), puis visite chaque page d'offre pour en extraire les champs structurés (`Localisation`, `Experience requise`...) et le contact de candidature.
+- **jobcameroun** : récupère la liste des offres sur `/offres`, puis visite chaque page d'offre pour en extraire le bloc JSON-LD structuré et le contact de candidature (email, lien externe ou WhatsApp).
 
 Par défaut, seules les offres **encore valides** (date limite de candidature non dépassée, ou inconnue) sont incluses — voir `--include-expired` ci-dessous.
 
@@ -24,7 +26,7 @@ Pour chaque offre, le CSV contient :
 - `title` : titre de l'offre
 - `published` : date de publication (ISO 8601)
 - `deadline` : date limite de candidature (ISO 8601), vide si non trouvée
-- `source` : `cameroondesks` ou `jobincamer`
+- `source` : `cameroondesks`, `jobincamer` ou `jobcameroun`
 - `location` : lieu du poste tel que rédigé dans l'annonce (texte libre)
 - `region` : région administrative du Cameroun déduite de `location` (Centre, Littoral, Ouest...)
 - `ville` : ville déduite de `location`, normalisée (ex : "Yaounde"/"Yaoundé" → `Yaoundé`)
@@ -35,7 +37,7 @@ Pour chaque offre, le CSV contient :
 - `apply_url` : lien(s) externe(s) de candidature (formulaire, ATS...), en excluant les liens décoratifs (réseaux sociaux, pub, navigation interne)
 - `summary` : extrait du contenu (300 caractères)
 
-Sur JobinCamer, `location` et `experience` viennent de champs structurés du site (fiables). Sur CameroonDesks, ces mêmes champs (ainsi que `salary` et `work_mode` sur les deux sources) sont extraits par heuristique depuis du texte libre — voir Limites connues.
+Sur JobinCamer, `location` et `experience` viennent de champs structurés du site (fiables). Sur JobCameroun, `location` et `deadline` viennent du bloc JSON-LD structuré (fiables), mais `experience` reste extraite par heuristique depuis le texte de l'annonce. Sur CameroonDesks, tous ces champs (ainsi que `salary` et `work_mode` sur les trois sources) sont extraits par heuristique depuis du texte libre — voir Limites connues.
 
 ## Bourses et concours
 
@@ -89,9 +91,9 @@ candidature. Elle reconnaît les variations de casse, d'accents et certains noms
 d'entreprise abrégés, tout en conservant deux offres lorsque des champs connus
 se contredisent ou que les postes sont différents.
 
-Par défaut, seules les lignes `cameroondesks` et `jobincamer` sont publiées.
-Une autre sélection peut être demandée explicitement, par exemple avec
-`--source jobcameroun`, ou plusieurs options `--source` répétées.
+Par défaut, les lignes `cameroondesks`, `jobincamer` et `jobcameroun` sont
+publiées. Une autre sélection peut être demandée explicitement avec une ou
+plusieurs options `--source` répétées.
 
 Après lecture du rapport, effectuer l'envoi explicite :
 
@@ -115,9 +117,9 @@ approuvée automatiquement et reste dans la file de modération.
 
 ### Synchronisation quotidienne en une commande
 
-La commande suivante scrape CameroonDesks et JobinCamer, remplace le CSV par
-les offres récentes, puis publie uniquement celles qui ne sont pas encore sur
-KamerJob :
+La commande suivante scrape CameroonDesks, JobinCamer et JobCameroun,
+remplace le CSV par les offres récentes, puis publie uniquement celles qui ne
+sont pas encore sur KamerJob :
 
 ```bash
 python3 sync_kamerjob.py
@@ -177,5 +179,6 @@ Options (identiques pour les deux scripts) :
 - Si une offre ne contient ni `mailto:` ni lien externe reconnu, `apply_email` et `apply_url` restent vides — c'est systématiquement le cas sur InfosPratiques, dont les articles ne font que citer en texte libre le nom du portail officiel de candidature, sans lien direct.
 - Sur CameroonDesks, `location`, `experience`, `salary` et `work_mode` sont extraits par heuristique depuis du texte libre (pas de structure fixe d'un article à l'autre) : ils peuvent rester vides même quand l'information existe dans l'article, notamment `salary` qui n'est presque jamais précisé.
 - Sur JobinCamer, `salary` et `work_mode` restent des heuristiques (le site n'a pas de champ dédié) ; `location` et `experience` en revanche sont fiables (champs structurés du site).
-- `deadline` est fiable sur JobinCamer (champ structuré). Sur CameroonDesks et InfosPratiques, elle est extraite par heuristique depuis du texte libre (formats de date variés, en français ou en anglais) : si aucune date n'est détectée, l'annonce est considérée valide par défaut plutôt qu'exclue à tort.
+- Sur JobCameroun, `salary`, `work_mode` et `experience` restent des heuristiques (extraits du texte de l'annonce) ; `location` et `deadline` en revanche sont fiables (bloc JSON-LD structuré).
+- `deadline` est fiable sur JobinCamer et JobCameroun (champs structurés). Sur CameroonDesks et InfosPratiques, elle est extraite par heuristique depuis du texte libre (formats de date variés, en français ou en anglais) : si aucune date n'est détectée, l'annonce est considérée valide par défaut plutôt qu'exclue à tort.
 - `region`/`ville` reposent sur une liste de villes camerounaises usuelles (chefs-lieux + villes secondaires fréquentes) : les petites localités absentes de cette liste ne seront pas résolues et laisseront ces deux champs vides. Quand `location` est vide, le texte complet de l'annonce est scanné, mais uniquement si une seule ville y est mentionnée (sinon, trop ambigu, les champs restent vides plutôt que de deviner à tort).

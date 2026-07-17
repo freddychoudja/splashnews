@@ -58,7 +58,7 @@ class SyncKamerJobTests(unittest.TestCase):
         )
 
         self.assertEqual(result, 0)
-        scrape_sources.assert_called_once_with(("cameroondesks", "jobincamer"), 30, 20)
+        scrape_sources.assert_called_once_with(("cameroondesks", "jobincamer", "jobcameroun"), 30, 20)
         write_csv.assert_called_once_with(scrape_sources.return_value, output)
         command = subprocess_run.call_args.args[0]
         self.assertIn("--send", command)
