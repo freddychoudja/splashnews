@@ -6,12 +6,13 @@ import sys
 
 import requests
 
-from sources import cameroondesks, jobcameroun, jobincamer
+from sources import cameroondesks, jobcameroun, jobincamer, reliefweb
 
 SOURCES = {
     cameroondesks.NAME: cameroondesks.scrape,
     jobincamer.NAME: jobincamer.scrape,
     jobcameroun.NAME: jobcameroun.scrape,
+    reliefweb.NAME: reliefweb.scrape,
 }
 
 FIELDNAMES = [
