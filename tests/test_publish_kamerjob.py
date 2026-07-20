@@ -3,6 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from publish_kamerjob import (
+    DEFAULT_SOURCES,
     build_payload,
     clean_application_email,
     clean_application_url,
@@ -24,6 +25,9 @@ REGIONS = {normalized("Centre"): 2, normalized("Partout au Cameroun"): 11}
 
 
 class PublishKamerJobTests(unittest.TestCase):
+    def test_minajobs_is_published_by_default(self):
+        self.assertIn("minajobs", DEFAULT_SOURCES)
+
     def test_company_from_recruitment_title(self):
         self.assertEqual(
             infer_company("Recrutement ONG GIZ Cameroun juillet 2026"),

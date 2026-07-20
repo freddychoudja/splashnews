@@ -14,6 +14,7 @@ Sources :
 - [JobinCamer](https://www.jobincamer.com/adverts/jobs) (`jobincamer`) : portail d'offres Drupal, données structurées (localisation, expérience, secteur...).
 - [JobCameroun](https://job-cameroun.com/offres) (`jobcameroun`) : chaque offre embarque un bloc JSON-LD `schema.org/JobPosting` structuré (titre, dates, localisation).
 - [ReliefWeb Jobs](https://reliefweb.int/jobs) (`reliefweb`) : API publique de l'ONU (OCHA), filtrée sur le Cameroun ; elle apporte surtout des postes d'ONG et d'organisations internationales.
+- [MinaJobs](https://cameroun.minajobs.net/rss) (`minajobs`) : flux RSS public couvrant emplois, stages et missions temporaires au Cameroun.
 
 ### Fonctionnement
 
@@ -21,6 +22,7 @@ Sources :
 - **jobincamer** : récupère la liste des offres sur `/adverts/jobs` (titre, lieu, date de publication), puis visite chaque page d'offre pour en extraire les champs structurés (`Localisation`, `Experience requise`...) et le contact de candidature.
 - **jobcameroun** : récupère la liste des offres sur `/offres`, puis visite chaque page d'offre pour en extraire le bloc JSON-LD structuré et le contact de candidature (email, lien externe ou WhatsApp).
 - **reliefweb** : interroge directement l'API officielle avec le filtre pays `CMR`. Les villes, dates, exigences d'expérience et modalités de candidature sont fournies sous forme structurée.
+- **minajobs** : lit le flux RSS « toutes catégories », visite chaque annonce puis extrait uniquement l'email ou le formulaire externe du recruteur. Les offres sans canal direct sont ignorées et aucune URL MinaJobs n'est envoyée à KamerJob.
 
 Par défaut, seules les offres **encore valides** (date limite de candidature non dépassée, ou inconnue) sont incluses — voir `--include-expired` ci-dessous.
 
@@ -93,9 +95,11 @@ candidature. Elle reconnaît les variations de casse, d'accents et certains noms
 d'entreprise abrégés, tout en conservant deux offres lorsque des champs connus
 se contredisent ou que les postes sont différents.
 
-Par défaut, les lignes `cameroondesks`, `jobincamer`, `jobcameroun` et `reliefweb` sont
-publiées. Une autre sélection peut être demandée explicitement avec une ou
-plusieurs options `--source` répétées.
+Par défaut, les lignes `cameroondesks`, `jobincamer`, `jobcameroun`, `reliefweb`
+et `minajobs` sont publiées. Pour MinaJobs, seules les annonces possédant un
+email ou un formulaire externe appartenant au recruteur sont conservées ; le
+lien intermédiaire MinaJobs n'est jamais publié. Une autre sélection peut être
+demandée explicitement avec une ou plusieurs options `--source` répétées.
 
 Après lecture du rapport, effectuer l'envoi explicite :
 
@@ -119,7 +123,7 @@ approuvée automatiquement et reste dans la file de modération.
 
 ### Synchronisation quotidienne en une commande
 
-La commande suivante scrape CameroonDesks, JobinCamer, JobCameroun et ReliefWeb,
+La commande suivante collecte CameroonDesks, JobinCamer, JobCameroun, ReliefWeb et MinaJobs,
 remplace le CSV par les offres récentes, puis publie uniquement celles qui ne
 sont pas encore sur KamerJob :
 
@@ -168,7 +172,7 @@ absente n'empêche pas la synchronisation de fonctionner.
 
 Options (identiques pour les deux scripts) :
 - `--source` : `all` (défaut) ou le nom d'une source précise — limite le scraping à une seule source
-  - `scraper.py` : `cameroondesks`, `jobincamer`, `jobcameroun`, `reliefweb`
+  - `scraper.py` : `cameroondesks`, `jobincamer`, `jobcameroun`, `reliefweb`, `minajobs`
   - `scraper_opportunites.py` : `cameroondesks`, `infospratiques`
 - `--days` : n'inclure que les annonces publiées durant les N derniers jours (défaut : 30)
 - `--max-pages` : nombre maximum de pages à parcourir par source (défaut : 20, ignoré par jobincamer qui n'a qu'une page de listing)
