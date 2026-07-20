@@ -13,12 +13,14 @@ Sources :
 - [CameroonDesks](https://www.cameroondesks.com/search/label/jobs) (`cameroondesks`) : blog Blogger, offres au format texte libre.
 - [JobinCamer](https://www.jobincamer.com/adverts/jobs) (`jobincamer`) : portail d'offres Drupal, données structurées (localisation, expérience, secteur...).
 - [JobCameroun](https://job-cameroun.com/offres) (`jobcameroun`) : chaque offre embarque un bloc JSON-LD `schema.org/JobPosting` structuré (titre, dates, localisation).
+- [ReliefWeb Jobs](https://reliefweb.int/jobs) (`reliefweb`) : API publique de l'ONU (OCHA), filtrée sur le Cameroun ; elle apporte surtout des postes d'ONG et d'organisations internationales.
 
 ### Fonctionnement
 
 - **cameroondesks** : interroge le flux JSON public de Blogger (`/feeds/posts/default/-/jobs`) plutôt que de parser le HTML de la page, ce qui le rend robuste aux changements de mise en page. Ce flux renvoie déjà le contenu complet de chaque article, donc aucune requête supplémentaire n'est nécessaire.
 - **jobincamer** : récupère la liste des offres sur `/adverts/jobs` (titre, lieu, date de publication), puis visite chaque page d'offre pour en extraire les champs structurés (`Localisation`, `Experience requise`...) et le contact de candidature.
 - **jobcameroun** : récupère la liste des offres sur `/offres`, puis visite chaque page d'offre pour en extraire le bloc JSON-LD structuré et le contact de candidature (email, lien externe ou WhatsApp).
+- **reliefweb** : interroge directement l'API officielle avec le filtre pays `CMR`. Les villes, dates, exigences d'expérience et modalités de candidature sont fournies sous forme structurée.
 
 Par défaut, seules les offres **encore valides** (date limite de candidature non dépassée, ou inconnue) sont incluses — voir `--include-expired` ci-dessous.
 
@@ -37,7 +39,7 @@ Pour chaque offre, le CSV contient :
 - `apply_url` : lien(s) externe(s) de candidature (formulaire, ATS...), en excluant les liens décoratifs (réseaux sociaux, pub, navigation interne)
 - `summary` : extrait du contenu (300 caractères)
 
-Sur JobinCamer, `location` et `experience` viennent de champs structurés du site (fiables). Sur JobCameroun, `location` et `deadline` viennent du bloc JSON-LD structuré (fiables), mais `experience` reste extraite par heuristique depuis le texte de l'annonce. Sur CameroonDesks, tous ces champs (ainsi que `salary` et `work_mode` sur les trois sources) sont extraits par heuristique depuis du texte libre — voir Limites connues.
+Sur JobinCamer, `location` et `experience` viennent de champs structurés du site (fiables). Sur JobCameroun, `location` et `deadline` viennent du bloc JSON-LD structuré (fiables), mais `experience` reste extraite par heuristique depuis le texte de l'annonce. ReliefWeb fournit également des données structurées. Sur CameroonDesks, les champs sont extraits par heuristique depuis du texte libre — voir Limites connues.
 
 ## Bourses et concours
 
@@ -91,7 +93,7 @@ candidature. Elle reconnaît les variations de casse, d'accents et certains noms
 d'entreprise abrégés, tout en conservant deux offres lorsque des champs connus
 se contredisent ou que les postes sont différents.
 
-Par défaut, les lignes `cameroondesks`, `jobincamer` et `jobcameroun` sont
+Par défaut, les lignes `cameroondesks`, `jobincamer`, `jobcameroun` et `reliefweb` sont
 publiées. Une autre sélection peut être demandée explicitement avec une ou
 plusieurs options `--source` répétées.
 
@@ -117,7 +119,7 @@ approuvée automatiquement et reste dans la file de modération.
 
 ### Synchronisation quotidienne en une commande
 
-La commande suivante scrape CameroonDesks, JobinCamer et JobCameroun,
+La commande suivante scrape CameroonDesks, JobinCamer, JobCameroun et ReliefWeb,
 remplace le CSV par les offres récentes, puis publie uniquement celles qui ne
 sont pas encore sur KamerJob :
 
@@ -166,7 +168,7 @@ absente n'empêche pas la synchronisation de fonctionner.
 
 Options (identiques pour les deux scripts) :
 - `--source` : `all` (défaut) ou le nom d'une source précise — limite le scraping à une seule source
-  - `scraper.py` : `cameroondesks`, `jobincamer`
+  - `scraper.py` : `cameroondesks`, `jobincamer`, `jobcameroun`, `reliefweb`
   - `scraper_opportunites.py` : `cameroondesks`, `infospratiques`
 - `--days` : n'inclure que les annonces publiées durant les N derniers jours (défaut : 30)
 - `--max-pages` : nombre maximum de pages à parcourir par source (défaut : 20, ignoré par jobincamer qui n'a qu'une page de listing)
