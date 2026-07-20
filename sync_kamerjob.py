@@ -16,7 +16,9 @@ import requests
 from scraper import SOURCES, write_csv
 
 
-DEFAULT_SOURCES = ("cameroondesks", "jobincamer", "jobcameroun", "reliefweb")
+DEFAULT_SOURCES = (
+    "cameroondesks", "jobincamer", "jobcameroun", "reliefweb", "minajobs",
+)
 DEFAULT_OUTPUT = "offres_emploi_cameroun.csv"
 
 
@@ -113,7 +115,7 @@ def run_sync(
     limit: int | None,
 ) -> int:
     print(
-        "1/2 Scraping de CameroonDesks, JobinCamer, JobCameroun et ReliefWeb "
+        "1/2 Scraping de CameroonDesks, JobinCamer, JobCameroun, ReliefWeb et MinaJobs "
         f"sur les {days} derniers jours…",
         flush=True,
     )
