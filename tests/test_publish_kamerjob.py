@@ -1,6 +1,7 @@
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import Mock
 
 from publish_kamerjob import (
     DEFAULT_SOURCES,
@@ -8,6 +9,7 @@ from publish_kamerjob import (
     clean_application_email,
     clean_application_url,
     complete_description,
+    create_listing,
     fit_application_url,
     has_application_channel,
     infer_company,
@@ -25,6 +27,55 @@ REGIONS = {normalized("Centre"): 2, normalized("Partout au Cameroun"): 11}
 
 
 class PublishKamerJobTests(unittest.TestCase):
+    def test_unknown_city_is_retried_with_region_only(self):
+        invalid = Mock(status_code=400)
+        invalid.json.return_value = {
+            "city": ["Choisis une ville de la liste pour cette région."]
+        }
+        success = Mock(status_code=201)
+        success.raise_for_status.return_value = None
+        session = Mock()
+        session.post.side_effect = [invalid, success]
+        payload = {"title": "Technicien de laboratoire", "region": 2, "city": "Akonolinga"}
+
+        response = create_listing(session, payload)
+
+        self.assertIs(response, success)
+        self.assertEqual(payload["city"], "")
+        self.assertEqual(session.post.call_count, 2)
+        self.assertEqual(session.post.call_args.kwargs["json"]["region"], 2)
+
+    def test_akonolinga_is_sent_as_obala(self):
+        payload, reason = build_payload(
+            {
+                "title": "Le CMA recrute un Technicien de laboratoire",
+                "summary": "Le centre médical recherche un technicien.",
+                "source": "cameroondesks",
+                "region": "Centre",
+                "ville": "Akonolinga",
+                "apply_email": "mailto:recrutement@example.org",
+            },
+            REGIONS,
+            default_sector=21,
+            default_job_type=10,
+        )
+
+        self.assertIsNone(reason)
+        self.assertEqual(payload["region"], 2)
+        self.assertEqual(payload["city"], "Obala")
+
+    def test_non_city_error_is_not_retried(self):
+        invalid = Mock(status_code=400)
+        invalid.json.return_value = {"title": ["Ce titre existe déjà."]}
+        invalid.raise_for_status.side_effect = RuntimeError("bad request")
+        session = Mock()
+        session.post.return_value = invalid
+
+        with self.assertRaises(RuntimeError):
+            create_listing(session, {"title": "Offre", "region": 2, "city": "Yaoundé"})
+
+        session.post.assert_called_once()
+
     def test_minajobs_is_published_by_default(self):
         self.assertIn("minajobs", DEFAULT_SOURCES)
 
@@ -41,6 +92,7 @@ class PublishKamerJobTests(unittest.TestCase):
     def test_application_cleanup(self):
         self.assertEqual(clean_application_email("mailto:jobs@example.cm"), "jobs@example.cm")
         self.assertEqual(clean_application_url("http://bad@email; https://example.com/apply"), "https://example.com/apply")
+        self.assertIsNone(clean_application_url("https://www.jobincamer.com/job/123"))
         long_url = "https://example.com/apply?tracking=" + ("x" * 220)
         self.assertEqual(fit_application_url(long_url), "https://example.com/apply")
 
@@ -104,8 +156,9 @@ class PublishKamerJobTests(unittest.TestCase):
         self.assertEqual(payload["region"], 2)
         self.assertEqual(payload["remote_mode"], "hybrid")
         self.assertEqual(payload["application_email"], "jobs@mtn.cm")
+        self.assertEqual(payload["tags"], "")
 
-    def test_missing_application_channel_is_allowed(self):
+    def test_missing_application_channel_does_not_disclose_the_source(self):
         payload, reason = build_payload(
             {
                 "title": "Recrutement ACME juillet 2026",
@@ -121,7 +174,7 @@ class PublishKamerJobTests(unittest.TestCase):
         self.assertEqual(payload["company_name"], "ACME")
         self.assertIsNone(payload["application_url"])
         self.assertIsNone(payload["application_email"])
-        self.assertIn("CameroonDesks", payload["application_address"])
+        self.assertEqual(payload["application_address"], "")
 
     def test_journal_created_ids_ignores_other_events(self):
         with TemporaryDirectory() as directory:
