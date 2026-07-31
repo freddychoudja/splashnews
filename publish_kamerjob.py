@@ -28,6 +28,22 @@ DEFAULT_JOURNAL = "publication_kamerjob.jsonl"
 DEFAULT_SOURCES = (
     "cameroondesks", "jobincamer", "jobcameroun", "reliefweb", "minajobs",
 )
+
+# Les sites ci-dessous servent uniquement à la collecte. Leurs liens ne doivent
+# jamais devenir des liens de candidature dans une annonce KamerJob.
+SCRAPER_SOURCE_DOMAINS = (
+    "cameroondesks.com",
+    "jobincamer.com",
+    "job-cameroun.com",
+    "reliefweb.int",
+    "minajobs.net",
+)
+# Certaines localités détectées par les scrapers ne figurent pas encore dans
+# la liste de villes du back-office KamerJob. La valeur source reste intacte
+# dans le CSV ; seule la valeur envoyée à l'API est adaptée.
+KAMERJOB_CITY_ALIASES = {
+    "akonolinga": "Obala",
+}
 GENERIC_COMPANY_TOKENS = {
     "cameroun", "cameroon", "sa", "sas", "sarl", "ltd", "limited", "plc",
     "groupe", "group", "company", "compagnie", "societe", "entreprise", "ong",
@@ -221,7 +237,17 @@ def clean_application_url(value: str) -> str | None:
     for part in re.split(r"\s*;\s*", value or ""):
         candidate = part.strip()
         parsed = urlparse(candidate)
-        if parsed.scheme in {"http", "https"} and parsed.netloc and "@" not in parsed.netloc:
+        hostname = (parsed.hostname or "").lower()
+        is_source_url = any(
+            hostname == domain or hostname.endswith(f".{domain}")
+            for domain in SCRAPER_SOURCE_DOMAINS
+        )
+        if (
+            parsed.scheme in {"http", "https"}
+            and parsed.netloc
+            and "@" not in parsed.netloc
+            and not is_source_url
+        ):
             return candidate
     return None
 
@@ -345,18 +371,6 @@ def build_payload(
     application_address = ""
     if original_url and not url:
         application_address = f"Candidature en ligne : {original_url}"
-    if not email and not url and not application_address:
-        source_label = {
-            "cameroondesks": "CameroonDesks",
-            "jobincamer": "JobinCamer",
-            "jobcameroun": "Job Cameroun",
-            "reliefweb": "ReliefWeb",
-            "minajobs": "MinaJobs",
-        }.get((row.get("source") or "").strip(), "la source de l'annonce")
-        application_address = (
-            f"Consulter l'annonce originale sur {source_label} pour les modalités "
-            "de candidature."
-        )
     if not title or not description:
         return None, "titre ou description manquant"
     if not company:
@@ -374,6 +388,8 @@ def build_payload(
     if deadline:
         deadline = deadline[:10]
 
+    source_city = (row.get("ville") or "").strip()
+    city = KAMERJOB_CITY_ALIASES.get(normalized(source_city), source_city)
     payload = {
         "kind": "job",
         "language": "fr",
@@ -381,9 +397,11 @@ def build_payload(
         "description": description,
         "cover_image": None,
         "display_mode": "standard",
-        "tags": row.get("source", ""),
+        # La provenance est une information interne de collecte, pas un tag
+        # visible sur l'annonce KamerJob.
+        "tags": "",
         "region": region,
-        "city": (row.get("ville") or "").strip(),
+        "city": city,
         "expires_at": deadline,
         "company": None,
         "company_name": company,
@@ -404,6 +422,29 @@ def build_payload(
         "application_address": application_address,
     }
     return payload, None
+
+
+def create_listing(session: requests.Session, payload: dict) -> requests.Response:
+    """Crée une annonce, avec repli sans ville si la liste KamerJob la refuse."""
+    endpoint = f"{BASE_URL}/api/admin/listings/"
+    response = session.post(endpoint, json=payload, timeout=30)
+    if response.status_code == 400 and payload.get("city"):
+        try:
+            errors = response.json()
+        except ValueError:
+            errors = {}
+        city_errors = errors.get("city") if isinstance(errors, dict) else None
+        if city_errors:
+            rejected_city = payload["city"]
+            payload["city"] = ""
+            print(
+                f"REPLI    ville {rejected_city!r} non reconnue par KamerJob ; "
+                "publication avec la région uniquement",
+                file=sys.stderr,
+            )
+            response = session.post(endpoint, json=payload, timeout=30)
+    response.raise_for_status()
+    return response
 
 
 def authenticate(session: requests.Session, env_path: Path) -> None:
@@ -702,9 +743,10 @@ def main() -> int:
             seen_identities.append(identity)
             continue
         try:
-            response = session.post(f"{BASE_URL}/api/admin/listings/", json=payload, timeout=30)
-            response.raise_for_status()
+            response = create_listing(session, payload)
             data = response.json()
+            # Le repli de create_listing peut avoir retiré une ville non reconnue.
+            identity = listing_identity(payload)
             created_this_run.add(key)
             seen_identities.append(identity)
             counts["created"] += 1
